@@ -1,4 +1,4 @@
-﻿const menuToggle = document.querySelector('.menu-toggle');
+const menuToggle = document.querySelector('.menu-toggle');
 const siteNav = document.querySelector('.site-nav');
 const year = document.getElementById('year');
 const projectSearch = document.getElementById('project-search');
@@ -50,21 +50,39 @@ const endpointIsConfigured = (url) =>
   /^https?:\/\/.+/i.test(url) &&
   !url.includes('REPLACE_');
 
-const submitToEndpoint = async (endpoint, payload) => {
-  const response = await fetch(endpoint, {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      Accept: 'application/json'
-    },
-    body: JSON.stringify(payload)
+const toUrlEncodedBody = (payload) => {
+  const params = new URLSearchParams();
+
+  Object.entries(payload).forEach(([key, value]) => {
+    if (value !== null && value !== undefined) {
+      params.append(key, String(value));
+    }
   });
 
-  if (!response.ok) {
-    throw new Error('Submission failed');
-  }
+  return params;
+};
 
-  return response;
+const submitToEndpoint = async (endpoint, payload) => {
+  const body = toUrlEncodedBody(payload);
+
+  try {
+    const response = await fetch(endpoint, {
+      method: 'POST',
+      body
+    });
+
+    if (!response.ok) {
+      throw new Error('Submission failed');
+    }
+
+    return;
+  } catch (error) {
+    await fetch(endpoint, {
+      method: 'POST',
+      body,
+      mode: 'no-cors'
+    });
+  }
 };
 
 if (form && formStatus) {
@@ -200,19 +218,33 @@ if (resumeGateForm && resumeStatus) {
   });
 }
 
-const observer = new IntersectionObserver(
-  (entries) => {
-    entries.forEach((entry) => {
-      if (entry.isIntersecting) {
-        entry.target.classList.add('visible');
-        observer.unobserve(entry.target);
-      }
-    });
-  },
-  { threshold: 0.1 }
-);
-
-document.querySelectorAll('.reveal').forEach((element, index) => {
-  element.style.transitionDelay = `${Math.min(index * 40, 180)}ms`;
-  observer.observe(element);
+document.querySelectorAll('a[href="#top"]').forEach((backToTopLink) => {
+  backToTopLink.addEventListener('click', (event) => {
+    event.preventDefault();
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+    history.replaceState(null, '', '#top');
+  });
 });
+
+if ('IntersectionObserver' in window) {
+  const observer = new IntersectionObserver(
+    (entries) => {
+      entries.forEach((entry) => {
+        if (entry.isIntersecting) {
+          entry.target.classList.add('visible');
+          observer.unobserve(entry.target);
+        }
+      });
+    },
+    { threshold: 0.1 }
+  );
+
+  document.querySelectorAll('.reveal').forEach((element, index) => {
+    element.style.transitionDelay = `${Math.min(index * 40, 180)}ms`;
+    observer.observe(element);
+  });
+} else {
+  document.querySelectorAll('.reveal').forEach((element) => {
+    element.classList.add('visible');
+  });
+}
